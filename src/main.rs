@@ -128,6 +128,6 @@ mod app {
     fn turn_red(c: turn_red::Context)
     {
         info!("turn_red");
-        c.leds.write(once((255, 0, 0))).unwrap();
+        c.local.leds.write(once((255, 0, 0))).unwrap();
     }
 }
