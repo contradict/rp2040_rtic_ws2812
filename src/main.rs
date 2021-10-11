@@ -69,7 +69,7 @@ mod app {
 
     #[local]
     struct Local {
-        leds: Ws2812<hal::pio::SM0, hal::timer::CountDown<'static>>,
+        leds: Ws2812<(pac::PIO0, hal::pio::SM0), hal::timer::CountDown<'static>>,
     }
 
 
