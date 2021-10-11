@@ -7,7 +7,6 @@
 use core::sync::atomic::{AtomicUsize, Ordering};
 use defmt_rtt as _;
 use panic_probe as _;
-use rp2040_hal as hal;
 
 #[defmt::panic_handler]
 fn panic() -> ! {
@@ -42,20 +41,19 @@ mod app {
     use core::iter::once;
 
     use embedded_hal::timer::CountDown;
-    use pico::{
-        hal::{self,
-              clocks::init_clocks_and_plls,
-              clocks::Clock,
-              pac,
-              sio::Sio,
-              watchdog::Watchdog,
-              gpio::{Pin, FunctionPio0},
-              gpio::pin::bank0::Gpio14,
-              timer::Timer,
-        },
-        XOSC_CRYSTAL_FREQ,
+    use rp2040_hal as hal;
+    use hal::{
+        clocks::init_clocks_and_plls,
+        clocks::Clock,
+        pac,
+        sio::Sio,
+        watchdog::Watchdog,
+        gpio::{Pin, FunctionPio0},
+        gpio::pin::bank0::Gpio14,
+        timer::Timer,
+        pio::PIOExt,
     };
-    use rp2040_hal::pio::PIOExt;
+    use pico::XOSC_CRYSTAL_FREQ;
     use systick_monotonic::Systick;
     use rtic::time::duration::*;
 
