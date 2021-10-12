@@ -1,4 +1,3 @@
-#![deny(unsafe_code)]
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -41,41 +40,44 @@ mod app {
     use core::iter::once;
 
     use embedded_hal::timer::CountDown;
-    use rp2040_hal as hal;
     use hal::{
         clocks::init_clocks_and_plls,
         clocks::Clock,
-        pac,
-        sio::Sio,
-        watchdog::Watchdog,
-        gpio::{Pin, FunctionPio0},
         gpio::pin::bank0::Gpio14,
-        timer::Timer,
+        gpio::{FunctionPio0, Pin},
+        pac,
         pio::PIOExt,
+        sio::Sio,
+        timer::Timer,
+        watchdog::Watchdog,
     };
     use pico::XOSC_CRYSTAL_FREQ;
-    use systick_monotonic::Systick;
+    use rp2040_hal as hal;
     use rtic::time::duration::*;
+    use systick_monotonic::Systick;
 
-    use ws2812_pio::Ws2812;
     use smart_leds::{brightness, SmartLedsWrite, RGB8};
+    use ws2812_pio::Ws2812;
+
+    pub struct Ws2812Wrapper(
+        pub Ws2812<(pac::PIO0, hal::pio::SM0), hal::timer::CountDown<'static>>,
+    );
+    unsafe impl Send for Ws2812Wrapper {}
 
     #[monotonic(binds = SysTick, default = true)]
     type MyMono = Systick<100>;
 
     #[shared]
-    struct Shared {
-    }
+    struct Shared {}
 
     #[local]
     struct Local {
-        leds: Ws2812<(pac::PIO0, hal::pio::SM0), hal::timer::CountDown<'static>>,
+        leds: Ws2812Wrapper,
     }
 
-
-    #[init]
+    #[init(local = [timer: Option<Timer> = None])]
     fn init(c: init::Context) -> (Shared, Local, init::Monotonics) {
-		info!("init");
+        info!("init");
         let mut resets = c.device.RESETS;
         let mut watchdog = Watchdog::new(c.device.WATCHDOG);
         let clocks = init_clocks_and_plls(
@@ -100,34 +102,29 @@ mod app {
 
         let mono = Systick::new(c.core.SYST, clocks.system_clock.freq().0);
 
-        let timer = Timer::new(c.device.TIMER, &mut resets);
+        let timer = c
+            .local
+            .timer
+            .insert(Timer::new(c.device.TIMER, &mut resets));
 
         let _leds_pin: Pin<_, FunctionPio0> = pins.gpio14.into_mode();
         let (mut pio, sm0, _, _, _) = c.device.PIO0.split(&mut resets);
-        let mut leds = Ws2812::new(
+        let leds = Ws2812Wrapper(Ws2812::new(
             14, // Gpio14
             &mut pio,
             sm0,
             clocks.peripheral_clock.freq(),
             timer.count_down(),
-        );
+        ));
 
         turn_red::spawn_after(2.seconds()).unwrap();
 
-        (
-            Shared {
-            },
-            Local {
-                leds,
-            },
-            init::Monotonics(mono),
-        )
+        (Shared {}, Local { leds }, init::Monotonics(mono))
     }
 
     #[task(local=[leds])]
-    fn turn_red(c: turn_red::Context)
-    {
+    fn turn_red(c: turn_red::Context) {
         info!("turn_red");
-        c.local.leds.write(once((255, 0, 0))).unwrap();
+        c.local.leds.0.write(once((255, 0, 0))).unwrap();
     }
 }
